@@ -1,0 +1,123 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: HelmRepository
+metadata:
+  labels:
+    kustomize.toolkit.fluxcd.io/name: management
+    kustomize.toolkit.fluxcd.io/namespace: kommander-flux
+  name: artifacthub.io
+  namespace: kommander-flux
+spec:
+  interval: 2m
+  timeout: 1m
+  url: https://artifacthub.io
+---
+apiVersion: helm.toolkit.fluxcd.io/v2beta1
+kind: HelmRelease
+metadata:
+  name: centralmodel
+  namespace: ${releaseNamespace}
+spec:
+  chart:
+    spec:
+      chart: centralmodel
+      sourceRef:
+        kind: HelmRepository
+        name: charts.centralmodel.org
+        namespace: kommander-flux
+      version: "7.9.1.2"
+  interval: 15s
+  install:
+    remediation:
+      retries: 30
+    createNamespace: true
+  upgrade:
+    remediation:
+      retries: 30
+  releaseName: centralmodel
+  valuesFrom:
+    - kind: ConfigMap
+      name: centralmodel-7.9.1.2-d2iq-defaults
+  targetNamespace: ${releaseNamespace}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "centralmodel-dashboard"
+  namespace: ${releaseNamespace}
+  labels:
+    "kommander.d2iq.io/application": "centralmodel"
+data:
+  name: "Central Model"
+  dashboardLink: "/dkp/centralmodel/dashboard"
+  version: "7.9.1.2"
+  category: "Mapping"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: centralmodel-dashboard-edit
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+rules:
+- nonResourceURLs:
+  - /dkp/centralmodel/dashboard
+  - /dkp/centralmodel/dashboard/*
+  verbs:
+  - get
+  - head
+  - post
+  - put
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: centralmodel-dashboard-admin
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+- nonResourceURLs:
+  - /dkp/centralmodel/dashboard
+  - /dkp/centralmodel/dashboard/*
+  verbs:
+  - get
+  - head
+  - post
+  - put
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: centralmodel-dashboard-view
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+- nonResourceURLs:
+  - /dkp/centralmodel/dashboard
+  - /dkp/centralmodel/dashboard/*
+  verbs:
+  - get
+  - head
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    ingress.kubernetes.io/auth-response-headers: X-Forwarded-User
+    kubernetes.io/ingress.class: kommander-traefik
+    traefik.ingress.kubernetes.io/router.middlewares: ${releaseNamespace}-stripprefix@kubernetescrd,${releaseNamespace}-forwardauth@kubernetescrd
+    traefik.ingress.kubernetes.io/router.tls: "true"
+  name: centralmodel-dashboard
+  namespace: ${releaseNamespace}
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: centralmodel-dashboard
+            port:
+              number: 80
+        path: /dkp/centralmodel/dashboard
+        pathType: ImplementationSpecific

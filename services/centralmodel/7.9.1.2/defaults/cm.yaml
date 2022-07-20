@@ -1,0 +1,31 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: centralmodel-7.9.1.2-d2iq-defaults
+  namespace: ${releaseNamespace}
+data:
+  values.yaml: |
+    ---
+    replicaCount: 1
+    image:
+      repository: iobtassets.azurecr.io/centralmodel
+      pullPolicy: IfNotPresent
+      tag: "v7.9.1.2"    
+    serviceAccount:
+      create: true
+      annotations: {}
+      name: ""    
+    service:
+      type: LoadBalancer
+      port: 80    
+    ingress:
+      enabled: false      
+    resources: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 80
+      targetMemoryUtilizationPercentage: 80
+
